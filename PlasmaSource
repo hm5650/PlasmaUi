@@ -1,0 +1,196 @@
+--[[
+    UI Library for Roblox
+    Features:
+    - Component-based system
+    - Theme support
+    - Animation utilities
+    - Responsive layout helpers
+]]
+
+local UILibrary = {}
+
+-- Theme system
+UILibrary.Themes = {
+    Light = {
+        Background = Color3.fromRGB(245, 245, 245),
+        Primary = Color3.fromRGB(0, 120, 215),
+        Text = Color3.fromRGB(0, 0, 0),
+        Secondary = Color3.fromRGB(200, 200, 200)
+    },
+    Dark = {
+        Background = Color3.fromRGB(30, 30, 30),
+        Primary = Color3.fromRGB(0, 180, 255),
+        Text = Color3.fromRGB(255, 255, 255),
+        Secondary = Color3.fromRGB(60, 60, 60)
+    }
+}
+
+UILibrary.CurrentTheme = "Dark"
+
+-- Utility functions
+function UILibrary:SetTheme(themeName)
+    if self.Themes[themeName] then
+        self.CurrentTheme = themeName
+    else
+        warn("Theme '"..themeName.."' not found")
+    end
+end
+
+function UILibrary:GetColor(colorName)
+    return self.Themes[self.CurrentTheme][colorName] or Color3.new(1, 1, 1)
+end
+
+-- Base component creator
+function UILibrary:Create(class, properties)
+    local instance = Instance.new(class)
+    
+    for property, value in pairs(properties) do
+        if property == "Parent" then
+            instance.Parent = value
+        else
+            if instance[property] ~= nil then
+                if type(value) == "table" and value.__component then
+                    -- Handle nested components
+                    value:Render().Parent = instance
+                else
+                    instance[property] = value
+                end
+            end
+        end
+    end
+    
+    return instance
+end
+
+-- Predefined components
+function UILibrary:Button(properties)
+    properties = properties or {}
+    
+    local button = self:Create("TextButton", {
+        Size = properties.Size or UDim2.new(0, 200, 0, 50),
+        BackgroundColor3 = self:GetColor("Primary"),
+        TextColor3 = self:GetColor("Text"),
+        Text = properties.Text or "Button",
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        AutoButtonColor = true,
+        Parent = properties.Parent
+    })
+    
+    -- Add hover effects
+    local originalSize = button.Size
+    local originalColor = button.BackgroundColor3
+    
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = originalColor:Lerp(Color3.new(1, 1, 1), 0.1)
+        button.Size = originalSize + UDim2.new(0, 4, 0, 4)
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = originalColor
+        button.Size = originalSize
+    end)
+    
+    -- Connect click event if provided
+    if properties.OnClick then
+        button.Activated:Connect(properties.OnClick)
+    end
+    
+    return button
+end
+
+function UILibrary:Window(properties)
+    properties = properties or {}
+    
+    local window = self:Create("Frame", {
+        Size = properties.Size or UDim2.new(0, 300, 0, 400),
+        BackgroundColor3 = self:GetColor("Background"),
+        Parent = properties.Parent
+    })
+    
+    -- Title bar
+    local titleBar = self:Create("Frame", {
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundColor3 = self:GetColor("Primary"),
+        Parent = window
+    })
+    
+    self:Create("TextLabel", {
+        Size = UDim2.new(1, -10, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = properties.Title or "Window",
+        TextColor3 = self:GetColor("Text"),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 16,
+        Parent = titleBar
+    })
+    
+    -- Content frame
+    local content = self:Create("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, -30),
+        Position = UDim2.new(0, 0, 0, 30),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 5,
+        Parent = window
+    })
+    
+    self:Create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5),
+        Parent = content
+    })
+    
+    self:Create("UIPadding", {
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10),
+        PaddingTop = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10),
+        Parent = content
+    })
+    
+    -- Make draggable
+    local dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = window.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragStart = nil
+                end
+            end)
+        end
+    end)
+    
+    titleBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
+            local delta = input.Position - dragStart
+            window.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
+        end
+    end)
+    
+    return {
+        Instance = window,
+        Content = content,
+        __component = true,
+        
+        Add = function(self, child)
+            child.Parent = self.Content
+        end
+    }
+end
+
+-- Animation utilities
+function UILibrary:Tween(object, properties, duration, easingStyle, easingDirection)
+    easingStyle = easingStyle or Enum.EasingStyle.Quad
+    easingDirection = easingDirection or Enum.EasingDirection.Out
+    
+    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
+    local tween = game:GetService("TweenService"):Create(object, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+return UILibrary
