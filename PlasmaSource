@@ -1,196 +1,549 @@
---[[
-    UI Library for Roblox
-    Features:
-    - Component-based system
-    - Theme support
-    - Animation utilities
-    - Responsive layout helpers
-]]
+-- Plasma UI Library
+-- Load with: loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/plasma/main/library.lua"))()
 
-local UILibrary = {}
+local Plasma = {}
+Plasma.__index = Plasma
 
--- Theme system
-UILibrary.Themes = {
-    Light = {
-        Background = Color3.fromRGB(245, 245, 245),
-        Primary = Color3.fromRGB(0, 120, 215),
-        Text = Color3.fromRGB(0, 0, 0),
-        Secondary = Color3.fromRGB(200, 200, 200)
-    },
-    Dark = {
-        Background = Color3.fromRGB(30, 30, 30),
-        Primary = Color3.fromRGB(0, 180, 255),
-        Text = Color3.fromRGB(255, 255, 255),
-        Secondary = Color3.fromRGB(60, 60, 60)
-    }
+-- Theme settings
+Plasma.Theme = {
+    Primary = Color3.fromRGB(0, 120, 215),
+    Secondary = Color3.fromRGB(40, 40, 40),
+    Text = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromRGB(0, 180, 255),
+    Dark = Color3.fromRGB(30, 30, 30),
+    Light = Color3.fromRGB(240, 240, 240)
 }
 
-UILibrary.CurrentTheme = "Dark"
-
--- Utility functions
-function UILibrary:SetTheme(themeName)
-    if self.Themes[themeName] then
-        self.CurrentTheme = themeName
-    else
-        warn("Theme '"..themeName.."' not found")
-    end
-end
-
-function UILibrary:GetColor(colorName)
-    return self.Themes[self.CurrentTheme][colorName] or Color3.new(1, 1, 1)
-end
-
--- Base component creator
-function UILibrary:Create(class, properties)
-    local instance = Instance.new(class)
+-- Create a new Plasma instance
+function Plasma.new(title)
+    local self = setmetatable({}, Plasma)
+    self.Elements = {}
     
-    for property, value in pairs(properties) do
-        if property == "Parent" then
-            instance.Parent = value
-        else
-            if instance[property] ~= nil then
-                if type(value) == "table" and value.__component then
-                    -- Handle nested components
-                    value:Render().Parent = instance
-                else
-                    instance[property] = value
-                end
-            end
-        end
-    end
+    -- Create main screen GUI
+    local player = game:GetService("Players").LocalPlayer
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "PlasmaUI"
+    gui.Parent = player:WaitForChild("PlayerGui")
+    gui.ResetOnSpawn = false
     
-    return instance
-end
-
--- Predefined components
-function UILibrary:Button(properties)
-    properties = properties or {}
-    
-    local button = self:Create("TextButton", {
-        Size = properties.Size or UDim2.new(0, 200, 0, 50),
-        BackgroundColor3 = self:GetColor("Primary"),
-        TextColor3 = self:GetColor("Text"),
-        Text = properties.Text or "Button",
-        Font = Enum.Font.Gotham,
-        TextSize = 14,
-        AutoButtonColor = true,
-        Parent = properties.Parent
-    })
-    
-    -- Add hover effects
-    local originalSize = button.Size
-    local originalColor = button.BackgroundColor3
-    
-    button.MouseEnter:Connect(function()
-        button.BackgroundColor3 = originalColor:Lerp(Color3.new(1, 1, 1), 0.1)
-        button.Size = originalSize + UDim2.new(0, 4, 0, 4)
-    end)
-    
-    button.MouseLeave:Connect(function()
-        button.BackgroundColor3 = originalColor
-        button.Size = originalSize
-    end)
-    
-    -- Connect click event if provided
-    if properties.OnClick then
-        button.Activated:Connect(properties.OnClick)
-    end
-    
-    return button
-end
-
-function UILibrary:Window(properties)
-    properties = properties or {}
-    
-    local window = self:Create("Frame", {
-        Size = properties.Size or UDim2.new(0, 300, 0, 400),
-        BackgroundColor3 = self:GetColor("Background"),
-        Parent = properties.Parent
-    })
+    -- Main frame
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Name = "MainFrame"
+    self.MainFrame.BackgroundColor3 = Plasma.Theme.Secondary
+    self.MainFrame.BorderSizePixel = 0
+    self.MainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    self.MainFrame.Size = UDim2.new(0, 400, 0, 300)
+    self.MainFrame.Parent = gui
     
     -- Title bar
-    local titleBar = self:Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundColor3 = self:GetColor("Primary"),
-        Parent = window
-    })
+    self.TitleBar = Instance.new("Frame")
+    self.TitleBar.Name = "TitleBar"
+    self.TitleBar.BackgroundColor3 = Plasma.Theme.Primary
+    self.TitleBar.BorderSizePixel = 0
+    self.TitleBar.Size = UDim2.new(1, 0, 0, 30)
+    self.TitleBar.Parent = self.MainFrame
     
-    self:Create("TextLabel", {
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.new(0, 10, 0, 0),
-        BackgroundTransparency = 1,
-        Text = properties.Title or "Window",
-        TextColor3 = self:GetColor("Text"),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 16,
-        Parent = titleBar
-    })
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.Size = UDim2.new(0, 200, 1, 0)
+    titleLabel.Font = Enum.Font.GothamSemibold
+    titleLabel.Text = title or "Plasma UI"
+    titleLabel.TextColor3 = Plasma.Theme.Text
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = self.TitleBar
+    
+    -- Close button
+    self.CloseButton = Instance.new("TextButton")
+    self.CloseButton.Name = "CloseButton"
+    self.CloseButton.BackgroundTransparency = 1
+    self.CloseButton.Position = UDim2.new(1, -30, 0, 0)
+    self.CloseButton.Size = UDim2.new(0, 30, 1, 0)
+    self.CloseButton.Font = Enum.Font.GothamBold
+    self.CloseButton.Text = "X"
+    self.CloseButton.TextColor3 = Plasma.Theme.Text
+    self.CloseButton.TextSize = 14
+    self.CloseButton.Parent = self.TitleBar
+    
+    self.CloseButton.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
     
     -- Content frame
-    local content = self:Create("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 1, -30),
-        Position = UDim2.new(0, 0, 0, 30),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 5,
-        Parent = window
-    })
-    
-    self:Create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 5),
-        Parent = content
-    })
-    
-    self:Create("UIPadding", {
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10),
-        PaddingTop = UDim.new(0, 10),
-        PaddingBottom = UDim.new(0, 10),
-        Parent = content
-    })
+    self.ContentFrame = Instance.new("Frame")
+    self.ContentFrame.Name = "Content"
+    self.ContentFrame.BackgroundTransparency = 1
+    self.ContentFrame.Position = UDim2.new(0, 0, 0, 30)
+    self.ContentFrame.Size = UDim2.new(1, 0, 1, -30)
+    self.ContentFrame.Parent = self.MainFrame
     
     -- Make draggable
-    local dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
+    local dragging
+    local dragInput
+    local dragStart
+    local startPos
+    
+    local function update(input)
+        local delta = input.Position - dragStart
+        self.MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    
+    self.TitleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
             dragStart = input.Position
-            startPos = window.Position
+            startPos = self.MainFrame.Position
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    dragStart = nil
+                    dragging = false
                 end
             end)
         end
     end)
     
-    titleBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
-            local delta = input.Position - dragStart
-            window.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
+    self.TitleBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
     end)
     
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+    
+    return self
+end
+
+-- Create a button
+function Plasma:Button(options)
+    local button = Instance.new("TextButton")
+    button.Name = "Button_" .. options.Text
+    button.BackgroundColor3 = Plasma.Theme.Primary
+    button.BorderSizePixel = 0
+    button.Position = options.Position or UDim2.new(0, 10, 0, 10)
+    button.Size = options.Size or UDim2.new(0, 120, 0, 30)
+    button.Font = Enum.Font.GothamSemibold
+    button.Text = options.Text or "Button"
+    button.TextColor3 = Plasma.Theme.Text
+    button.TextSize = 14
+    button.Parent = self.ContentFrame
+    
+    if options.Callback then
+        button.MouseButton1Click:Connect(options.Callback)
+    end
+    
+    table.insert(self.Elements, button)
+    return button
+end
+
+-- Create a label
+function Plasma:Label(options)
+    local label = Instance.new("TextLabel")
+    label.Name = "Label_" .. options.Text
+    label.BackgroundTransparency = 1
+    label.Position = options.Position or UDim2.new(0, 10, 0, 10)
+    label.Size = options.Size or UDim2.new(0, 200, 0, 20)
+    label.Font = Enum.Font.Gotham
+    label.Text = options.Text or "Label"
+    label.TextColor3 = options.TextColor or Plasma.Theme.Text
+    label.TextSize = options.TextSize or 14
+    label.TextXAlignment = options.XAlignment or Enum.TextXAlignment.Left
+    label.Parent = self.ContentFrame
+    
+    table.insert(self.Elements, label)
+    return label
+end
+
+-- Create a textbox
+function Plasma:TextBox(options)
+    local textBox = Instance.new("TextBox")
+    textBox.Name = "TextBox_" .. (options.Name or "Input")
+    textBox.BackgroundColor3 = Plasma.Theme.Dark
+    textBox.BorderSizePixel = 0
+    textBox.Position = options.Position or UDim2.new(0, 10, 0, 50)
+    textBox.Size = options.Size or UDim2.new(0, 200, 0, 30)
+    textBox.Font = Enum.Font.Gotham
+    textBox.PlaceholderText = options.Placeholder or "Enter text..."
+    textBox.Text = options.Text or ""
+    textBox.TextColor3 = Plasma.Theme.Text
+    textBox.TextSize = 14
+    textBox.ClearTextOnFocus = options.ClearOnFocus or false
+    textBox.Parent = self.ContentFrame
+    
+    if options.Callback then
+        textBox.FocusLost:Connect(function(enterPressed)
+            options.Callback(textBox.Text, enterPressed)
+        end)
+    end
+    
+    table.insert(self.Elements, textBox)
+    return textBox
+end
+
+-- Create a toggle
+function Plasma:Toggle(options)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Name = "Toggle_" .. options.Text
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.Position = options.Position or UDim2.new(0, 10, 0, 90)
+    toggleFrame.Size = UDim2.new(0, 200, 0, 30)
+    toggleFrame.Parent = self.ContentFrame
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "ToggleButton"
+    toggleButton.BackgroundColor3 = Plasma.Theme.Dark
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Position = UDim2.new(0, 0, 0.5, -10)
+    toggleButton.Size = UDim2.new(0, 40, 0, 20)
+    toggleButton.Font = Enum.Font.Gotham
+    toggleButton.Text = ""
+    toggleButton.TextColor3 = Plasma.Theme.Text
+    toggleButton.TextSize = 14
+    toggleButton.Parent = toggleFrame
+    
+    local toggleLabel = Instance.new("TextLabel")
+    toggleLabel.Name = "ToggleLabel"
+    toggleLabel.BackgroundTransparency = 1
+    toggleLabel.Position = UDim2.new(0, 50, 0, 0)
+    toggleLabel.Size = UDim2.new(0, 150, 1, 0)
+    toggleLabel.Font = Enum.Font.Gotham
+    toggleLabel.Text = options.Text or "Toggle"
+    toggleLabel.TextColor3 = Plasma.Theme.Text
+    toggleLabel.TextSize = 14
+    toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    toggleLabel.Parent = toggleFrame
+    
+    local toggleState = options.Default or false
+    local function updateToggle()
+        if toggleState then
+            toggleButton.BackgroundColor3 = Plasma.Theme.Primary
+        else
+            toggleButton.BackgroundColor3 = Plasma.Theme.Dark
+        end
+    end
+    
+    updateToggle()
+    
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleState = not toggleState
+        updateToggle()
+        if options.Callback then
+            options.Callback(toggleState)
+        end
+    end)
+    
+    table.insert(self.Elements, toggleFrame)
     return {
-        Instance = window,
-        Content = content,
-        __component = true,
-        
-        Add = function(self, child)
-            child.Parent = self.Content
+        Frame = toggleFrame,
+        Button = toggleButton,
+        Label = toggleLabel,
+        GetState = function() return toggleState end,
+        SetState = function(state)
+            toggleState = state
+            updateToggle()
         end
     }
 end
 
--- Animation utilities
-function UILibrary:Tween(object, properties, duration, easingStyle, easingDirection)
-    easingStyle = easingStyle or Enum.EasingStyle.Quad
-    easingDirection = easingDirection or Enum.EasingDirection.Out
+-- Create a slider
+function Plasma:Slider(options)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Name = "Slider_" .. (options.Name or "Slider")
+    sliderFrame.BackgroundTransparency = 1
+    sliderFrame.Position = options.Position or UDim2.new(0, 10, 0, 130)
+    sliderFrame.Size = options.Size or UDim2.new(0, 200, 0, 40)
+    sliderFrame.Parent = self.ContentFrame
     
-    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
-    local tween = game:GetService("TweenService"):Create(object, tweenInfo, properties)
-    tween:Play()
-    return tween
+    local sliderLabel = Instance.new("TextLabel")
+    sliderLabel.Name = "SliderLabel"
+    sliderLabel.BackgroundTransparency = 1
+    sliderLabel.Position = UDim2.new(0, 0, 0, 0)
+    sliderLabel.Size = UDim2.new(1, 0, 0, 20)
+    sliderLabel.Font = Enum.Font.Gotham
+    sliderLabel.Text = options.Text or "Slider"
+    sliderLabel.TextColor3 = Plasma.Theme.Text
+    sliderLabel.TextSize = 14
+    sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    sliderLabel.Parent = sliderFrame
+    
+    local sliderTrack = Instance.new("Frame")
+    sliderTrack.Name = "SliderTrack"
+    sliderTrack.BackgroundColor3 = Plasma.Theme.Dark
+    sliderTrack.BorderSizePixel = 0
+    sliderTrack.Position = UDim2.new(0, 0, 0, 25)
+    sliderTrack.Size = UDim2.new(1, 0, 0, 5)
+    sliderTrack.Parent = sliderFrame
+    
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Name = "SliderFill"
+    sliderFill.BackgroundColor3 = Plasma.Theme.Primary
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+    sliderFill.Parent = sliderTrack
+    
+    local sliderButton = Instance.new("TextButton")
+    sliderButton.Name = "SliderButton"
+    sliderButton.BackgroundColor3 = Plasma.Theme.Light
+    sliderButton.BorderSizePixel = 0
+    sliderButton.Position = UDim2.new(0.5, -5, 0, -5)
+    sliderButton.Size = UDim2.new(0, 10, 0, 15)
+    sliderButton.Text = ""
+    sliderButton.Parent = sliderTrack
+    
+    local min = options.Min or 0
+    local max = options.Max or 100
+    local value = options.Default or min
+    
+    local function updateSlider(newValue)
+        value = math.clamp(newValue, min, max)
+        local ratio = (value - min) / (max - min)
+        sliderFill.Size = UDim2.new(ratio, 0, 1, 0)
+        sliderButton.Position = UDim2.new(ratio, -5, 0, -5)
+        
+        if options.ValueLabel then
+            sliderLabel.Text = string.format("%s: %.1f", options.Text or "Slider", value)
+        end
+        
+        if options.Callback then
+            options.Callback(value)
+        end
+    end
+    
+    updateSlider(value)
+    
+    local dragging = false
+    
+    sliderButton.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    
+    game:GetService("UserInputService").InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = game:GetService("Players").LocalPlayer:GetMouse().X
+            local absolutePos = sliderTrack.AbsolutePosition.X
+            local absoluteSize = sliderTrack.AbsoluteSize.X
+            local relativePos = math.clamp(mousePos - absolutePos, 0, absoluteSize)
+            local ratio = relativePos / absoluteSize
+            local newValue = min + (max - min) * ratio
+            updateSlider(newValue)
+        end
+    end)
+    
+    table.insert(self.Elements, sliderFrame)
+    return {
+        Frame = sliderFrame,
+        GetValue = function() return value end,
+        SetValue = function(newValue) updateSlider(newValue) end
+    }
 end
 
-return UILibrary
+-- Create a dropdown
+function Plasma:Dropdown(options)
+    local dropdownFrame = Instance.new("Frame")
+    dropdownFrame.Name = "Dropdown_" .. (options.Name or "Dropdown")
+    dropdownFrame.BackgroundTransparency = 1
+    dropdownFrame.Position = options.Position or UDim2.new(0, 10, 0, 180)
+    dropdownFrame.Size = UDim2.new(0, 200, 0, 30)
+    dropdownFrame.Parent = self.ContentFrame
+    
+    local dropdownButton = Instance.new("TextButton")
+    dropdownButton.Name = "DropdownButton"
+    dropdownButton.BackgroundColor3 = Plasma.Theme.Dark
+    dropdownButton.BorderSizePixel = 0
+    dropdownButton.Size = UDim2.new(1, 0, 0, 30)
+    dropdownButton.Font = Enum.Font.Gotham
+    dropdownButton.Text = options.Text or "Select an option"
+    dropdownButton.TextColor3 = Plasma.Theme.Text
+    dropdownButton.TextSize = 14
+    dropdownButton.TextXAlignment = Enum.TextXAlignment.Left
+    dropdownButton.Parent = dropdownFrame
+    
+    local dropdownList = Instance.new("ScrollingFrame")
+    dropdownList.Name = "DropdownList"
+    dropdownList.BackgroundColor3 = Plasma.Theme.Secondary
+    dropdownList.BorderSizePixel = 0
+    dropdownList.Position = UDim2.new(0, 0, 0, 35)
+    dropdownList.Size = UDim2.new(1, 0, 0, 0)
+    dropdownList.Visible = false
+    dropdownList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    dropdownList.ScrollBarThickness = 5
+    dropdownList.Parent = dropdownFrame
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = dropdownList
+    
+    local items = options.Items or {}
+    local selected = nil
+    
+    local function updateList()
+        dropdownList.CanvasSize = UDim2.new(0, 0, 0, #items * 30)
+        
+        for i, item in ipairs(items) do
+            local itemButton = Instance.new("TextButton")
+            itemButton.Name = "Item_" .. item
+            itemButton.BackgroundColor3 = Plasma.Theme.Dark
+            itemButton.BorderSizePixel = 0
+            itemButton.Size = UDim2.new(1, 0, 0, 30)
+            itemButton.Font = Enum.Font.Gotham
+            itemButton.Text = item
+            itemButton.TextColor3 = Plasma.Theme.Text
+            itemButton.TextSize = 14
+            itemButton.TextXAlignment = Enum.TextXAlignment.Left
+            itemButton.Parent = dropdownList
+            
+            itemButton.MouseButton1Click:Connect(function()
+                selected = item
+                dropdownButton.Text = item
+                dropdownList.Visible = false
+                dropdownList.Size = UDim2.new(1, 0, 0, 0)
+                
+                if options.Callback then
+                    options.Callback(item)
+                end
+            end)
+        end
+    end
+    
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdownList.Visible = not dropdownList.Visible
+        if dropdownList.Visible then
+            dropdownList.Size = UDim2.new(1, 0, 0, math.min(#items * 30, 150))
+        else
+            dropdownList.Size = UDim2.new(1, 0, 0, 0)
+        end
+    end)
+    
+    updateList()
+    
+    table.insert(self.Elements, dropdownFrame)
+    return {
+        Frame = dropdownFrame,
+        GetSelected = function() return selected end,
+        SetItems = function(newItems)
+            items = newItems
+            -- Clear existing items
+            for _, child in ipairs(dropdownList:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child:Destroy()
+                end
+            end
+            updateList()
+        end
+    }
+end
+
+-- Create a tab system
+function Plasma:TabSystem()
+    local tabSystem = {
+        Tabs = {},
+        CurrentTab = nil
+    }
+    
+    local tabButtonsFrame = Instance.new("Frame")
+    tabButtonsFrame.Name = "TabButtons"
+    tabButtonsFrame.BackgroundTransparency = 1
+    tabButtonsFrame.Size = UDim2.new(1, 0, 0, 30)
+    tabButtonsFrame.Parent = self.ContentFrame
+    
+    local tabsContainer = Instance.new("Frame")
+    tabsContainer.Name = "TabsContainer"
+    tabsContainer.BackgroundTransparency = 1
+    tabsContainer.Position = UDim2.new(0, 0, 0, 35)
+    tabsContainer.Size = UDim2.new(1, 0, 1, -35)
+    tabsContainer.Parent = self.ContentFrame
+    
+    function tabSystem:AddTab(name)
+        local tab = {
+            Name = name,
+            Frame = Instance.new("Frame"),
+            Button = Instance.new("TextButton")
+        }
+        
+        tab.Frame.Name = "Tab_" .. name
+        tab.Frame.BackgroundTransparency = 1
+        tab.Frame.Size = UDim2.new(1, 0, 1, 0)
+        tab.Frame.Visible = false
+        tab.Frame.Parent = tabsContainer
+        
+        tab.Button.Name = "TabButton_" .. name
+        tab.Button.BackgroundColor3 = Plasma.Theme.Dark
+        tab.Button.BorderSizePixel = 0
+        tab.Button.Size = UDim2.new(0, 80, 1, 0)
+        tab.Button.Font = Enum.Font.Gotham
+        tab.Button.Text = name
+        tab.Button.TextColor3 = Plasma.Theme.Text
+        tab.Button.TextSize = 14
+        tab.Button.Parent = tabButtonsFrame
+        
+        -- Position the button
+        local buttonCount = #self.Tabs
+        tab.Button.Position = UDim2.new(0, buttonCount * 85, 0, 0)
+        
+        tab.Button.MouseButton1Click:Connect(function()
+            self:SwitchToTab(name)
+        end)
+        
+        table.insert(self.Tabs, tab)
+        
+        if #self.Tabs == 1 then
+            self:SwitchToTab(name)
+        end
+        
+        return tab.Frame
+    end
+    
+    function tabSystem:SwitchToTab(name)
+        for _, tab in ipairs(self.Tabs) do
+            tab.Frame.Visible = (tab.Name == name)
+            if tab.Name == name then
+                tab.Button.BackgroundColor3 = Plasma.Theme.Primary
+                self.CurrentTab = tab
+            else
+                tab.Button.BackgroundColor3 = Plasma.Theme.Dark
+            end
+        end
+    end
+    
+    return tabSystem
+end
+
+-- Set theme
+function Plasma:SetTheme(newTheme)
+    for key, value in pairs(newTheme) do
+        if Plasma.Theme[key] ~= nil then
+            Plasma.Theme[key] = value
+        end
+    end
+    
+    -- Update existing elements
+    if self.MainFrame then
+        self.TitleBar.BackgroundColor3 = Plasma.Theme.Primary
+        self.MainFrame.BackgroundColor3 = Plasma.Theme.Secondary
+    end
+    
+    for _, element in ipairs(self.Elements) do
+        if element:IsA("TextButton") or element:IsA("TextBox") then
+            if element.Name:find("Button") or element.Name:find("Toggle") then
+                element.BackgroundColor3 = Plasma.Theme.Primary
+            elseif element.Name:find("TextBox") then
+                element.BackgroundColor3 = Plasma.Theme.Dark
+            end
+            element.TextColor3 = Plasma.Theme.Text
+        elseif element:IsA("TextLabel") then
+            element.TextColor3 = Plasma.Theme.Text
+        end
+    end
+end
+
+return Plasma
